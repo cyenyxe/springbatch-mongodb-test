@@ -70,6 +70,7 @@ public class MongoTestJob {
 		
 		Logger.getAnonymousLogger().warning("Overwrite value = " + overwrite);
 		reader.setQuery(overwrite ? "{}" : "{ annot : { $exists : false } }");
+		reader.setFields("{ chr : 1, start : 1, end : 1, ref : 1, alt : 1}");
 		reader.setTargetType(DBObject.class);
 		reader.setTemplate(mongoTemplate());
 
@@ -89,7 +90,7 @@ public class MongoTestJob {
 	@Bean
 	@StepScope
 	public ItemWriter<DBObject> writer() throws Exception {
-		MongoItemWriter<DBObject> writer = new MongoItemWriter<>();
+		MongoItemWriter<DBObject> writer = new VariantAnnotationMongoItemWriter();
 		writer.setCollection("variants");
 		writer.setTemplate(mongoTemplate());
 		return writer;
@@ -103,9 +104,11 @@ public class MongoTestJob {
 	
 	class VariantAnnotationProcessor implements ItemProcessor<DBObject, DBObject> {
 
+		int numUpdated;
+		
 		@Override
 		public DBObject process(DBObject object) throws Exception {
-			System.out.println(object);
+			System.out.println(++numUpdated + " = " + object);
 			object.put("annot", "SO:123");
 			return object;
 		}
