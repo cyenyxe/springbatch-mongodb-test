@@ -2,6 +2,7 @@ package com.example;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -15,6 +16,7 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.MongoItemReader;
 import org.springframework.batch.item.data.MongoItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort.Direction;
@@ -33,11 +35,13 @@ public class MongoTestJob {
 
 	@Autowired
 	private StepBuilderFactory steps;
+
+	private boolean overwriteDefault = false;
 	
 	@Bean
 	public Job job() throws Exception {
 		return jobs.get("mongotest")
-				.start(step1(reader(), processor(), writer()))
+				.start(step1(reader(overwriteDefault), processor(), writer()))
 				.build();
 	}
 
@@ -58,10 +62,14 @@ public class MongoTestJob {
 	
 	@Bean
 	@StepScope
-	public ItemReader<DBObject> reader() throws Exception {
+	public ItemReader<DBObject> reader(
+			@Value("#{jobParameters['annotation.overwrite']}") final boolean overwrite) 
+					throws Exception {
 		MongoItemReader<DBObject> reader = new MongoItemReader<>();
 		reader.setCollection("variants");
-		reader.setQuery("{ annot : { $exists : false } }");
+		
+		Logger.getAnonymousLogger().warning("Overwrite value = " + overwrite);
+		reader.setQuery(overwrite ? "{}" : "{ annot : { $exists : false } }");
 		reader.setTargetType(DBObject.class);
 		reader.setTemplate(mongoTemplate());
 
@@ -75,7 +83,7 @@ public class MongoTestJob {
 	@Bean
 	@StepScope
 	public ItemProcessor<DBObject, DBObject> processor() {
-		return new PrintItemProcessor();
+		return new VariantAnnotationProcessor();
 	}
 
 	@Bean
@@ -93,7 +101,7 @@ public class MongoTestJob {
 		
 	}
 	
-	class PrintItemProcessor implements ItemProcessor<DBObject, DBObject> {
+	class VariantAnnotationProcessor implements ItemProcessor<DBObject, DBObject> {
 
 		@Override
 		public DBObject process(DBObject object) throws Exception {
